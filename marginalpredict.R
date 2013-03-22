@@ -28,7 +28,7 @@
 ##
 ##
 
-sim.marginal.pred <- function(sim.fe, pred, S, link="identity", ci=0.95) {
+sim.marginal.pred <- function(n.sims.fe=10000, n.sims.re=10000, pred, coef.fe, vcov.fe, vcov.re, link="identity", ci=0.95) {
   require(coda, quietly=TRUE)
   require(MASS, quietly=TRUE)
   
@@ -41,28 +41,40 @@ sim.marginal.pred <- function(sim.fe, pred, S, link="identity", ci=0.95) {
     return(mu.t)
   }
   
-  # simulate same number of random effects as fixed effects, but cap the max
-  # number of random effects 10,000 (so R isn't overwhelmed)
-  n.sims.fe <- nrow(sim.fe)
-  n.sims.re <- min(c(10000, n.sims.fe))
+  # simulate fixed effect draws
+  sim.fe <- mvrnorm(n=n.sims.fe, mu=coef.fe, Sigma=vcov.fe)
+
+  # cap the max number of random effects at 10,000 (so R isn't overwhelmed)
+  num.re <- ncol(vcov.re)  # number of random effects
+  n.sims.re <- min(c(n.sims.re, 10000))
   
-  num.re <- ncol(S)  # number of random effects
-  sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=S)
-  simmu.re <- sim.re %*% rep(1, num.re)
+  ## Generate predictions across covariate combinations
+  pred.mat <- rbind(pred)      # coerce covariate values to rows
+  num.pred <- nrow(pred.mat)   # determine number of covariate combos
+
+  pred.out <- matrix(NA, nrow=num.pred, ncol=3)
+  colnames(pred.out) <- c("mean","lower","upper")
+    
+  for (i in 1:num.pred) { 
+    # empty vector to collect simulated results
+    simyn <- rep(NA, n.sims.fe)
+    
+    for (j in 1:n.sims.fe) {
+      sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
   
-  # empty vector to collect simulated results
-  simyn <- rep(NA, n.sims.fe)
-  
-  for (i in 1:n.sims.fe) {
-    simmu.fe <- sim.fe[i,] %*% pred
-    simmu <- simmu.fe + simmu.re[,1]
-    simy0 <- unlink(simmu, link)  # create vector of simulated predictions with diff't random effects
-    simyn[i] <- mean(simy0)       # average over random effects
+      simmu.fe <- sim.fe[j,] %*% pred
+      simmu.re <- sim.re %*% rep(1, num.re)
+      simmu <- simmu.fe + simmu.re[,1]
+      simy0 <- unlink(simmu, link)  # create vector of simulated predictions with diff't random effects
+      simyn[j] <- mean(simy0)       # average over random effects
+    }
+    
+    # output mean, and 95% CI limits
+    simci <- HPDinterval(as.mcmc(simyn), prob=ci)
+    pred.out[i,]  <- c(mean(simyn), simci[1,"lower"], simci[1,"upper"])
   }
   
-  simci <- HPDinterval(as.mcmc(simyn), prob=ci)
-  
-  # output mean, and 95% CI limits
-  res <- c(mean(simyn), simci[,"lower"], simci[,"upper"])
-  return(res)
+  # Return predicted values
+  return(pred.out)
 }
+
