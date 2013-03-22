@@ -26,7 +26,8 @@
 ##                link = link function ("logit", "log", default: "identity")
 ##                  ci = confidence interval (default = 0.95)
 ##
-##   To-do:  Replace the looping over the design matrix with matrix algebra.
+##   To-do:  - Extend to 3-level or higher designs
+##           - Computing first differences
 ##
 ### Reference:
 ##    King, G., Tomz, M., & Wittenberg, J. (2000). Making the most of statistical
@@ -55,30 +56,27 @@ sim.marginal.pred <- function(pred, n.sims.fe=10000, n.sims.re=10000, coef.fe, v
   n.sims.re <- min(c(n.sims.re, 10000))
   
   ## Generate predictions across covariate combinations
-  pred.mat <- rbind(pred)      # coerce covariate values to rows
-  num.pred <- nrow(pred.mat)   # determine number of covariate combos
+  pred.mat <- t(rbind(pred))   # coerce covariate values to rows
+  num.pred <- ncol(pred.mat)   # determine number of covariate combos
 
-  pred.out <- matrix(NA, nrow=num.pred, ncol=3)
-  colnames(pred.out) <- c("mean","lower","upper")
-    
-  for (i in 1:num.pred) { 
-    # empty vector to collect simulated results
-    simyn <- rep(NA, n.sims.fe)
-    
-    for (j in 1:n.sims.fe) {
-      sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
+  # empty matrix to collect simulated results
+  simyn <- matrix(NA, nrow=n.sims.fe, ncol=num.pred)
   
-      simmu.fe <- sim.fe[j,] %*% pred[i,]
-      simmu.re <- sim.re %*% rep(1, num.re)
-      simmu <- simmu.fe + simmu.re[,1]
-      simy0 <- unlink(simmu, link)  # create vector of simulated predictions with diff't random effects
-      simyn[j] <- mean(simy0)       # average over random effects
-    }
-    
-    # output mean, and 95% CI limits
-    simci <- HPDinterval(as.mcmc(simyn), prob=ci)
-    pred.out[i,]  <- c(mean(simyn), simci[1,"lower"], simci[1,"upper"])
+  for (j in 1:n.sims.fe) {
+    sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
+  
+    simmu.fe <- sim.fe[j,] %*% pred.mat
+    simmu.re <- sim.re %*% rep(1, num.re)
+    simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])
+    simy0 <- unlink(simmu, link)      # create vector of simulated predictions with diff't random effects
+    simyn[j,] <- apply(simy0, 2, mean) # average over random effects
   }
+    
+  # output mean, and 95% CI limits
+  simci <- HPDinterval(as.mcmc(simyn), prob=ci)
+  simmean <- apply(simyn, 2, mean)
+  pred.out <- cbind(simmean, simci[,"lower"], simci[,"upper"])
+  colnames(pred.out) <- c("mean","lower","upper")
   
   # Return predicted values
   return(pred.out)
