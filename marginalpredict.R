@@ -17,18 +17,24 @@
 ##
 ###  Dependencies: MASS, coda
 ##
-###  Inputs:     sim.fe = a matrix of simulated fixed effect coefficients
-##             pred.vec = a vector of predictor values (i.e., counterfactuals)
-##                    S = the variance-covariance matrix of the random effects
+###  Inputs:      pred = a vector or design matrix of predictor values (i.e., counterfactuals)
+##           n.sims.fe = number of fixed effect draws  (default = 10,000)
+##           n.sims.re = number of random effect draws (maximum/default = 10,000)
+##             coef.fe = mean estimates of fixed effects
+##             vcov.fe = the variance-covariance matrix of the fixed effects
+##             vcov.re = the variance-covariance matrix of the random effects
+##                link = link function ("logit", "log", default: "identity")
+##                  ci = confidence interval (default = 0.95)
+##
+##   To-do:  Replace the looping over the design matrix with matrix algebra.
 ##
 ### Reference:
 ##    King, G., Tomz, M., & Wittenberg, J. (2000). Making the most of statistical
 ##    analyses: Improving interpretation and presentation.
 ##    American Journal of Political Science, 44, 347–361. doi:10.3886/ICPSR01255.v1
 ##
-##
 
-sim.marginal.pred <- function(n.sims.fe=10000, n.sims.re=10000, pred, coef.fe, vcov.fe, vcov.re, link="identity", ci=0.95) {
+sim.marginal.pred <- function(pred, n.sims.fe=10000, n.sims.re=10000, coef.fe, vcov.fe, vcov.re, link="identity", ci=0.95) {
   require(coda, quietly=TRUE)
   require(MASS, quietly=TRUE)
   
@@ -62,7 +68,7 @@ sim.marginal.pred <- function(n.sims.fe=10000, n.sims.re=10000, pred, coef.fe, v
     for (j in 1:n.sims.fe) {
       sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
   
-      simmu.fe <- sim.fe[j,] %*% pred
+      simmu.fe <- sim.fe[j,] %*% pred[i,]
       simmu.re <- sim.re %*% rep(1, num.re)
       simmu <- simmu.fe + simmu.re[,1]
       simy0 <- unlink(simmu, link)  # create vector of simulated predictions with diff't random effects
