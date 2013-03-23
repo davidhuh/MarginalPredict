@@ -69,12 +69,12 @@ marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.
     simmu.re <- sim.re %*% rep(1, num.re)  # multiply out RE section of linear predictor
     simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])  # assemble linear predictor
     simy0 <- unlink(simmu, link)           # convert linear predictor to units of the outcome
-    simyn[j,] <- apply(simy0, 2, mean)     # average over random effects
+    simyn[j,] <- colMeans(simy0)     # average over random effects
   }
     
-  # output mean, and 95% CI limits
+  # calculate mean, and 95% CI limits
   simci <- HPDinterval(as.mcmc(simyn), prob=ci)
-  simmean <- apply(simyn, 2, mean)
+  simmean <- colMeans(simyn)
   pred.out <- cbind(simmean, simci[,"lower"], simci[,"upper"])
   colnames(pred.out) <- c("mean","lower","upper")
   rownames(pred.out) <- seq(1, num.pred)
