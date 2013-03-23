@@ -35,7 +35,7 @@
 ##    American Journal of Political Science, 44, 347–361. doi:10.3886/ICPSR01255.v1
 ##
 
-sim.marginal.pred <- function(pred, n.sims.fe=10000, n.sims.re=10000, coef.fe, vcov.fe, vcov.re, link="identity", ci=0.95) {
+sim.marginal.pred <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.sims.re=10000, link="identity", ci=0.95) {
   require(coda, quietly=TRUE)
   require(MASS, quietly=TRUE)
   
@@ -65,11 +65,11 @@ sim.marginal.pred <- function(pred, n.sims.fe=10000, n.sims.re=10000, coef.fe, v
   for (j in 1:n.sims.fe) {
     sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
   
-    simmu.fe <- sim.fe[j,] %*% pred.mat
-    simmu.re <- sim.re %*% rep(1, num.re)
-    simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])
-    simy0 <- unlink(simmu, link)       # create vector of simulated predictions with diff't random effects
-    simyn[j,] <- apply(simy0, 2, mean) # average over random effects
+    simmu.fe <- sim.fe[j,] %*% pred.mat    # multiply out FE section of linear predictor
+    simmu.re <- sim.re %*% rep(1, num.re)  # multiply out RE section of linear predictor
+    simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])  # assemble linear predictor
+    simy0 <- unlink(simmu, link)           # convert linear predictor to units of the outcome
+    simyn[j,] <- apply(simy0, 2, mean)     # average over random effects
   }
     
   # output mean, and 95% CI limits
@@ -81,4 +81,3 @@ sim.marginal.pred <- function(pred, n.sims.fe=10000, n.sims.re=10000, coef.fe, v
   # Return predicted values
   return(pred.out)
 }
-
