@@ -18,11 +18,11 @@
 ###  Dependencies: MASS, coda
 ##
 ###  Inputs:      pred = a vector or design matrix of predictor values (i.e., counterfactuals)
-##           n.sims.fe = number of fixed effect draws  (default = 10,000)
-##           n.sims.re = number of random effect draws (maximum/default = 10,000)
 ##             coef.fe = mean estimates of fixed effects
 ##             vcov.fe = the variance-covariance matrix of the fixed effects
 ##             vcov.re = the variance-covariance matrix of the random effects
+##           n.sims.fe = number of fixed effect draws  (default = 10,000)
+##           n.sims.re = number of random effect draws (maximum/default = 10,000)
 ##                link = link function ("logit", "log", default: "identity")
 ##                  ci = confidence interval (default = 0.95)
 ##
@@ -35,7 +35,7 @@
 ##    American Journal of Political Science, 44, 347–361. doi:10.3886/ICPSR01255.v1
 ##
 
-sim.marginal.pred <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.sims.re=10000, link="identity", ci=0.95) {
+marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.sims.re=10000, link="identity", ci=0.95) {
   require(coda, quietly=TRUE)
   require(MASS, quietly=TRUE)
   
