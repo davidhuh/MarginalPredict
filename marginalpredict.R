@@ -52,7 +52,8 @@ marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.
   sim.fe <- mvrnorm(n=n.sims.fe, mu=coef.fe, Sigma=vcov.fe)
 
   # cap the max number of random effects at 10,000 (so R isn't overwhelmed)
-  num.re <- ncol(vcov.re)  # number of random effects
+  num.re <- ncol(vcov.re)    # number of random effects
+  num.re2 <- ncol(vcov.re2)
   n.sims.re <- min(c(n.sims.re, 10000))
   
   ## Generate predictions across covariate combinations
@@ -62,13 +63,31 @@ marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.
   # empty matrix to collect simulated results
   simyn <- matrix(NA, nrow=n.sims.fe, ncol=num.pred)
   
-  for (j in 1:n.sims.fe) {
-    sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
+  # FE model
+  simmu <- sim.fe %*% pred.mat  # multiply out FE section of linear predictor
+  simy0 <- unlink(simmu, link)  # convert linear predictor to units of the outcome
+  simyn <- colMeans(simy0)      # average over random effects
   
+  for (j in 1:n.sims.fe) {
     simmu.fe <- sim.fe[j,] %*% pred.mat    # multiply out FE section of linear predictor
+    
+    sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
     simmu.re <- sim.re %*% rep(1, num.re)  # multiply out RE section of linear predictor
     simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])  # assemble linear predictor
-    simy0 <- unlink(simmu, link)           # convert linear predictor to units of the outcome
+    
+    for (k in 1:n.sims.re) {
+      sim.re2 <- mvrnorm(n=n.sims.re2, mu=rep(0, num.re2), Sigma=vcov.re2)
+      simmu.re2 <- sim.re2 %*% rep(1, num.re2)  # multiply out RE section of linear predictor
+      simmu2 <- apply(simmu.re[k,], 2, function(x, re) x + re, re=simmu.re2[,1])  # assemble linear predictor
+      
+      simy0 <- unlink(simmu2, link)     # convert linear predictor to units of the outcome
+      simyn[k,] <- colMeans(simy0)     # average over random effects
+
+      simy0 <- unlink(simmu, link)     # convert linear predictor to units of the outcome
+      simyn[k,] <- colMeans(simy0)     # average over random effects
+    }
+    
+    simy0 <- unlink(simmu, link)     # convert linear predictor to units of the outcome
     simyn[j,] <- colMeans(simy0)     # average over random effects
   }
     
