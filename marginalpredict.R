@@ -77,6 +77,7 @@ marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.
   simmean <- apply(simyn, 2, mean)
   pred.out <- cbind(simmean, simci[,"lower"], simci[,"upper"])
   colnames(pred.out) <- c("mean","lower","upper")
+  rownames(pred.out) <- seq(1, num.pred)
   
   # Return predicted values
   return(pred.out)
