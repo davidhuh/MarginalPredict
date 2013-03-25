@@ -1,45 +1,59 @@
 ### Description:
-##    This function simulates predicted values w/ confidence intervals for 
-##    mixed effect regression models using the multivariate normal approach
-##    suggested by King, Tomz, and Wittenberg (2000).
+##    This function simulates predicted values with confidence intervals for
+##    fixed and random effect regression models using the multivariate normal
+##    approach suggested by King, Tomz, and Wittenberg (2000).
 ##
 ##    These are marginal predictions that average over the random effects.
 ##   
-##    This current version works for 2-level models.  For additional levels
-##    of nesting, it may be necessary to create a nested averaging of random
-##    effects at each level.
+##    Random effects models with up to 3-levels of nesting are permitted.
+##    The algorithm performs a nested averaging, so adding a third level
+##    increases the computational demands exponentially, so
 ##
-##    This model currently supports models using the identity, logit, and
+##    This function currently supports models using the identity, logit, and
 ##    log links. This can be easily extended by updating the "unlink"
 ##    utility function.
 ##
 ###  Original Author: David Huh
 ##
-###  Dependencies: MASS, coda
+###  Dependencies: coda, MASS
 ##
-###  Inputs:      pred = a vector or design matrix of predictor values (i.e., counterfactuals)
-##             coef.fe = mean estimates of fixed effects
-##             vcov.fe = the variance-covariance matrix of the fixed effects
-##             vcov.re = the variance-covariance matrix of the random effects
-##           n.sims.fe = number of fixed effect draws  (default = 10,000)
-##           n.sims.re = number of random effect draws (maximum/default = 10,000)
-##                link = link function ("logit", "log", default: "identity")
-##                  ci = confidence interval (default = 0.95)
+###  Inputs:      pred  = a vector or design matrix of hypothetical predictor values
+##             coef.fe  = mean estimates of fixed effects
+##             vcov.fe  = the variance-covariance matrix of the fixed effects
+##             vcov.re  = a variance-covariance matrix of the level 2 random effects
+##             vcov.re2 = a variance-covariance matrix of the level 3 random effects
+##           n.sims.fe  = number of fixed effect draws  (default = 1,000)
+##           n.sims.re  = number of random effect draws of the level 2 random effects
+##           n.sims.re2 = number of random effect draws of the level 3 random effects
+##                link  = link function ("logit", "log", "identity" [default])
+##                  ci  = confidence interval (default = 0.95)
 ##
-##   To-do:  - Extend to 3-level or higher designs
-##           - Computing first differences
+##   To-do:  - Computing first differences
 ##
 ### Reference:
 ##    King, G., Tomz, M., & Wittenberg, J. (2000). Making the most of statistical
 ##    analyses: Improving interpretation and presentation.
-##    American Journal of Political Science, 44, 347–361. doi:10.3886/ICPSR01255.v1
+##    American Journal of Political Science, 44, 347-361. doi:10.3886/ICPSR01255.v1
 ##
 
-marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.sims.re=10000, link="identity", ci=0.95) {
+marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, vcov.re2,
+                            n.sims.fe=100, n.sims.re=100, n.sims.re2=100,
+                            link="identity", ci=0.95) {
   require(coda, quietly=TRUE)
   require(MASS, quietly=TRUE)
   
-  unlink <- function(mu,link) {
+  ## validate required arguments
+  if (missing(pred))
+    stop("Missing a vector or design matrix of predictor values.") 
+  if (missing(coef.fe))
+    stop("Missing mean estimates of the fixed effect.") 
+  if (missing(vcov.fe))
+    stop("Missing a variance-covariance matrix for the fixed effects.")
+  if (missing(vcov.re) & !missing(vcov.re2))
+    stop("Missing a variance-covariance matrix for the level 2 random effects.")
+  
+  ## utility to transform linear predictor to units of the outcome
+  unlink <- function(mu, link) {
     if (link=="logit") {
       mu.t <- 1/(1+exp(-mu))
     } else if (link=="log") {
@@ -48,56 +62,61 @@ marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, n.sims.fe=10000, n.
     return(mu.t)
   }
   
-  # simulate fixed effect draws
+  ## simulate draws from the fixed effect distribution
   sim.fe <- mvrnorm(n=n.sims.fe, mu=coef.fe, Sigma=vcov.fe)
-
-  # cap the max number of random effects at 10,000 (so R isn't overwhelmed)
-  num.re <- ncol(vcov.re)    # number of random effects
-  num.re2 <- ncol(vcov.re2)
-  n.sims.re <- min(c(n.sims.re, 10000))
   
-  ## Generate predictions across covariate combinations
+  ## pre-process design matrix (or vector) of predictors
   pred.mat <- t(rbind(pred))   # coerce covariate values to rows
   num.pred <- ncol(pred.mat)   # determine number of covariate combos
-
-  # empty matrix to collect simulated results
+  
+  ## initialize empty matrix to collect simulated results
   simyn <- matrix(NA, nrow=n.sims.fe, ncol=num.pred)
   
-  # FE model
-  simmu <- sim.fe %*% pred.mat  # multiply out FE section of linear predictor
-  simy0 <- unlink(simmu, link)  # convert linear predictor to units of the outcome
-  simyn <- colMeans(simy0)      # average over random effects
-  
-  for (j in 1:n.sims.fe) {
-    simmu.fe <- sim.fe[j,] %*% pred.mat    # multiply out FE section of linear predictor
+  if (missing(vcov.re)) {   ## Fixed effect model ##
+    simmu <- sim.fe %*% pred.mat  # multiply out FE section of linear predictor
+    simyn <- unlink(simmu, link)  # convert linear predictor to units of the outcome
+  } else {                  ## Random effect(s) model ##
+    ## initialize variables for collecting random effects simulations
+    n.sims.re <- min(c(n.sims.re, 10000)) # limit the max number of random effects
+    num.re <- ncol(vcov.re)               # number of level 2 random effects
     
-    sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
-    simmu.re <- sim.re %*% rep(1, num.re)  # multiply out RE section of linear predictor
-    simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])  # assemble linear predictor
-    
-    for (k in 1:n.sims.re) {
-      sim.re2 <- mvrnorm(n=n.sims.re2, mu=rep(0, num.re2), Sigma=vcov.re2)
-      simmu.re2 <- sim.re2 %*% rep(1, num.re2)  # multiply out RE section of linear predictor
-      simmu2 <- apply(simmu.re[k,], 2, function(x, re) x + re, re=simmu.re2[,1])  # assemble linear predictor
-      
-      simy0 <- unlink(simmu2, link)     # convert linear predictor to units of the outcome
-      simyn[k,] <- colMeans(simy0)     # average over random effects
-
-      simy0 <- unlink(simmu, link)     # convert linear predictor to units of the outcome
-      simyn[k,] <- colMeans(simy0)     # average over random effects
+    if (!missing(vcov.re2)) {
+      n.sims.re2 <- min(c(n.sims.re2, 10000))              # limit the max number of random effects
+      num.re2 <- ncol(vcov.re2)                            # number of level 3 random effects
+      simynr <- matrix(NA, nrow=n.sims.re, ncol=num.pred)  # initialize empty matrix to collect results
     }
     
-    simy0 <- unlink(simmu, link)     # convert linear predictor to units of the outcome
-    simyn[j,] <- colMeans(simy0)     # average over random effects
+    for (j in 1:n.sims.fe) {
+      simmu.fe <- sim.fe[j,] %*% pred.mat    # multiply out FE section of linear predictor
+      
+      sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
+      simmu.re <- sim.re %*% rep(1, num.re)  # multiply out RE section of linear predictor
+      simmu <- apply(simmu.fe, 2, function(x, re) x + re, re=simmu.re[,1])  # assemble linear predictor
+      
+      if (missing(vcov.re2)) {
+        simy0 <- unlink(simmu, link)    # convert linear predictor to units of the outcome
+        simyn[j,] <- colMeans(simy0)    # average over level 2 random effects
+      } else {  ## Average over add'l level of random effects ##
+        for (k in 1:n.sims.re) {
+          sim.re2 <- mvrnorm(n=n.sims.re2, mu=rep(0, num.re2), Sigma=vcov.re2)
+          simmu.re2 <- sim.re2 %*% rep(1, num.re2)  # multiply out RE section of linear predictor
+          simmu2 <- sapply(simmu[k,], function(x, re) x + re, re=simmu.re2[,1])  # assemble linear predictor
+          
+          simy0 <- unlink(simmu2, link)    # convert linear predictor to units of the outcome
+          simynr[k,] <- colMeans(simy0)    # average over level 3 random effects
+        }
+        simyn[j,] <- colMeans(simynr)      # average over level 2 random effects
+      }
+    }
   }
-    
-  # calculate mean, and 95% CI limits
+  
+  ## calculate mean and confidence intervals
   simci <- HPDinterval(as.mcmc(simyn), prob=ci)
   simmean <- colMeans(simyn)
   pred.out <- cbind(simmean, simci[,"lower"], simci[,"upper"])
   colnames(pred.out) <- c("mean","lower","upper")
   rownames(pred.out) <- seq(1, num.pred)
   
-  # Return predicted values
+  ## return predicted values 
   return(pred.out)
 }
