@@ -6,8 +6,9 @@
 ##    These are marginal predictions that average over the random effects.
 ##   
 ##    Random effects models with up to 3-levels of nesting are permitted.
-##    The algorithm performs a nested averaging, so adding a third level
-##    increases the computational demands exponentially, so
+##    Since the algorithm performs a nested averaging, adding a third level
+##    increases the computational demands expontentially (i.e., days).
+##    First run the simulation with fewer iterations to gauge estimation time.
 ##
 ##    This function currently supports models using the identity, logit, and
 ##    log links. This can be easily extended by updating the "unlink"
@@ -22,13 +23,14 @@
 ##             vcov.fe  = the variance-covariance matrix of the fixed effects
 ##             vcov.re  = a variance-covariance matrix of the level 2 random effects
 ##             vcov.re2 = a variance-covariance matrix of the level 3 random effects
-##           n.sims.fe  = number of fixed effect draws  (default = 1,000)
+##           n.sims.fe  = number of fixed effect draws
 ##           n.sims.re  = number of random effect draws of the level 2 random effects
 ##           n.sims.re2 = number of random effect draws of the level 3 random effects
 ##                link  = link function ("logit", "log", "identity" [default])
 ##                  ci  = confidence interval (default = 0.95)
 ##
 ##   To-do:  - Computing first differences
+##           - Improve efficiency via vectorization and other optimizations
 ##
 ### Reference:
 ##    King, G., Tomz, M., & Wittenberg, J. (2000). Making the most of statistical
@@ -117,6 +119,7 @@ marginalpredict <- function(pred, coef.fe, vcov.fe, vcov.re, vcov.re2,
   colnames(pred.out) <- c("mean","lower","upper")
   rownames(pred.out) <- seq(1, num.pred)
   
-  ## return predicted values 
-  return(pred.out)
+  ## return predicted values and marginal simulates
+  res <- list(sims=simyn, summary=pred.out)
+  return(res)
 }
