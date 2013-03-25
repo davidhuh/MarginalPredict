@@ -1,13 +1,13 @@
 ### Description:
-##    This function simulates predicted values with confidence intervals for
-##    fixed and random effect regression models using the multivariate normal
-##    approach suggested by King, Tomz, and Wittenberg (2000).
+##    Simulates predicted values with confidence intervals for fixed and
+##    random effect regression models using the multivariate normal approach
+##    suggested by King, Tomz, and Wittenberg (2000).
 ##
 ##    These are marginal predictions that average over the random effects.
 ##   
 ##    Random effects models with up to 3-levels of nesting are permitted.
 ##    Since the algorithm performs a nested averaging, adding a third level
-##    increases the computational demands expontentially (i.e., days).
+##    increases the computational demands exponentially (i.e., days).
 ##    First run the simulation with fewer iterations to gauge estimation time.
 ##
 ##    This function currently supports models using the identity, logit, and
@@ -18,7 +18,7 @@
 ##
 ###  Dependencies: coda, MASS
 ##
-###  Inputs:      pred  = a vector or design matrix of hypothetical predictor values
+###  Arguments:   pred  = a vector or design matrix of hypothetical predictor values
 ##             coef.fe  = mean estimates of fixed effects
 ##             vcov.fe  = the variance-covariance matrix of the fixed effects
 ##             vcov.re  = a variance-covariance matrix of the level 2 random effects
@@ -28,6 +28,9 @@
 ##           n.sims.re2 = number of random effect draws of the level 3 random effects
 ##                link  = link function ("logit", "log", "identity" [default])
 ##                  ci  = confidence interval (default = 0.95)
+##
+###  Values:       sims = a matrix of simulations (rows: simulates, columns: predictor combo)
+##              summary = a matrix summary the mean and confidence intervals across predictors
 ##
 ##   To-do:  - Computing first differences
 ##           - Improve efficiency via vectorization and other optimizations
