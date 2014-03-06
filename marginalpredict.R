@@ -77,7 +77,7 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
   num.fe.pred <- ncol(pred.fe.mat)   # determine number of covariate combos
   
   ## initialize empty matrix to collect simulated results
-  simyn <- matrix(NA, nrow=n.sims.fe, ncol=num.pred)
+  simyn <- matrix(NA, nrow=n.sims.fe, ncol=num.fe.pred)
   
   if (missing(vcov.re)) {   ## Fixed effect model ##
     simmu <- sim.fe %*% pred.fe.mat  # multiply out FE section of linear predictor
