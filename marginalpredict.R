@@ -52,6 +52,8 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
   ## validate required arguments
   if (missing(pred.fe))
     stop("Missing a vector or design matrix of predictor values.") 
+  if (missing(vcov.re) & !missing(pred.re))
+    stop("Missing a variance-covariance matrix for the level 2 random effects.")
   if (missing(coef.fe))
     stop("Missing mean estimates of the fixed effect.") 
   if (missing(vcov.fe))
@@ -79,9 +81,11 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
   ## initialize empty matrix to collect simulated results
   simyn <- matrix(NA, nrow=n.sims.fe, ncol=num.fe.pred)
   
+  # multiply out FE section of linear predictor
+  simmu.fe <- sim.fe %*% pred.fe.mat
+  
   if (missing(vcov.re)) {   ## Fixed effect model ##
-    simmu <- sim.fe %*% pred.fe.mat  # multiply out FE section of linear predictor
-    simyn <- unlink(simmu, link)  # convert linear predictor to units of the outcome
+    simyn <- unlink(simmu.fe, link)  # convert linear predictor to units of the outcome
   } else {                  ## Random effect(s) model ##
     ## pre-process design matrix (or vector) of predictors
     pred.re.mat <- t(rbind(pred.re))   # coerce covariate values to rows
@@ -97,12 +101,13 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
     }
     
     for (j in 1:n.sims.fe) {
-      simmu.fe <- sim.fe[j,] %*% pred.fe.mat    # multiply out FE section of linear predictor
-      
+      ## simulate draws from the level 2 random effect distribution
       sim.re <- mvrnorm(n=n.sims.re, mu=rep(0, num.re), Sigma=vcov.re)
       simmu.re <- sim.re %*% pred.re.mat  # multiply out RE section of linear predictor
-      simmu <- matrix(rep(simmu.fe, each=n.sims.re), nrow=n.sims.re, byrow=TRUE) + simmu.re  # assemble linear predictor
-      
+            
+      simmu.fe.row <- simmu.fe[j,]    # select a single fixed effect simulate
+      simmu <- matrix(rep(simmu.fe.row, each=n.sims.re), nrow=n.sims.re, byrow=TRUE) + simmu.re  # assemble linear predictor
+            
       if (missing(vcov.re2)) {
         simy0 <- unlink(simmu, link)    # convert linear predictor to units of the outcome
         simyn[j,] <- colMeans(simy0)    # average over level 2 random effects
@@ -113,7 +118,9 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
           
           sim.re2 <- mvrnorm(n=n.sims.re2, mu=rep(0, num.re2), Sigma=vcov.re2)
           simmu.re2 <- sim.re2 %*% pred.re2.mat  # multiply out RE section of linear predictor
-          simmu2 <- matrix(rep(simmu[k,], each=n.sims.re2), nrow=n.sims.re2, byrow=TRUE) + simmu.re2  # assemble linear predictor
+
+          simmu.row <- simmu[j,]    # select a single fixed effect + level 2 random effect simulate
+          simmu2 <- matrix(rep(simmu.row, each=n.sims.re2), nrow=n.sims.re2, byrow=TRUE) + simmu.re2  # assemble linear predictor
           
           simy0 <- unlink(simmu2, link)    # convert linear predictor to units of the outcome
           simynr[k,] <- colMeans(simy0)    # average over level 3 random effects
