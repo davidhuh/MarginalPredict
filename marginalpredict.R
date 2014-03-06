@@ -128,7 +128,7 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
   simmean <- colMeans(simyn)
   pred.out <- cbind(simmean, simci[,"lower"], simci[,"upper"])
   colnames(pred.out) <- c("mean","lower","upper")
-  rownames(pred.out) <- seq(1, num.pred)
+  rownames(pred.out) <- seq(1, num.fe.pred)
   
   ## return predicted values and marginal simulates
   res <- list(sims=simyn, summary=pred.out)
