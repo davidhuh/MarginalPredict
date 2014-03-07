@@ -106,7 +106,7 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
       simmu.re <- sim.re %*% pred.re.mat  # multiply out RE section of linear predictor
             
       simmu.fe.row <- simmu.fe[j,]    # select a single fixed effect simulate
-      simmu <- matrix(rep(simmu.fe.row, each=n.sims.re), nrow=n.sims.re, byrow=TRUE) + simmu.re  # assemble linear predictor
+      simmu <- matrix(rep(simmu.fe.row, times=n.sims.re), nrow=n.sims.re, byrow=TRUE) + simmu.re  # assemble linear predictor
             
       if (missing(vcov.re2)) {
         simy0 <- unlink(simmu, link)    # convert linear predictor to units of the outcome
@@ -120,7 +120,7 @@ marginalpredict <- function(pred.fe, pred.re, pred.re2, coef.fe, vcov.fe, vcov.r
           simmu.re2 <- sim.re2 %*% pred.re2.mat  # multiply out RE section of linear predictor
 
           simmu.row <- simmu[j,]    # select a single fixed effect + level 2 random effect simulate
-          simmu2 <- matrix(rep(simmu.row, each=n.sims.re2), nrow=n.sims.re2, byrow=TRUE) + simmu.re2  # assemble linear predictor
+          simmu2 <- matrix(rep(simmu.row, times=n.sims.re2), nrow=n.sims.re2, byrow=TRUE) + simmu.re2  # assemble linear predictor
           
           simy0 <- unlink(simmu2, link)    # convert linear predictor to units of the outcome
           simynr[k,] <- colMeans(simy0)    # average over level 3 random effects
